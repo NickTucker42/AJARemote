@@ -12,11 +12,12 @@
 #include <IRremote.h>
 #include <TinyPICO.h>
 
-#define AJAONE_VERSION "AJAOne Remote BT V1.2"
+#define AJAONE_VERSION "AJAOne Remote BT V1.3"
 #define BOARDNAME "AJARemoteBT_"
 #define WIFIPORTAL "AJAOneAP"
 
 #define TIMES_TO_SEND 10U
+#define bufferSize 2048
 
 #define dot_mqtttraffic 0x4C0099   // blue-purple
 #define dot_booting 0xFFFF00       // yellow
@@ -31,10 +32,6 @@ char mqtt_port[6] = "1883";
 char mqtt_user[15] = "";
 char mqtt_password[15] = "";
 bool noconfig = false;
-bool isxmitting = false;
-
-char HOME_ASSISTANT_MQTT_DISCOVERY_TOPIC[60];
-char friendlyName[65];
 
 int pressTime = 0;
 char boardname[30];
@@ -43,7 +40,7 @@ int IR_RECEIVE_PIN = 15;
 //int IR_RECEIVE_PIN = 34;
 
 //Firmware revision
-const char myversion[30] = AJAONE_VERSION; //"AJAOne V1.5";
+const char myversion[30] = AJAONE_VERSION; 
 
 bool busy;
 byte mac[6];

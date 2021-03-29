@@ -1,0 +1,8 @@
+Version 1.2
+ - First public release
+
+Version 1.3 Mar-2021
+ ~ added "bufferSize" to increase the MQTT / JSON buffer
+   to 2048 bytes.  Reported that some Panasonic remotes 
+   had PRONTO codes > 512 bytes.
+ ~ Removed dead code and general cleanup

@@ -1,19 +1,15 @@
- //https://www.rapidtables.com/web/color/RGB_Color.html
+//https://www.rapidtables.com/web/color/RGB_Color.html
 // IMPORTANT:  Partition MUST be set to "No OTA (Large APP)" or there will not be enough program space.
 
 #include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <SPIFFS.h>
 #include "ajaone.h"
 
-//uint32_t myid = 0;
-//for(int i=0; i<17; i=i+8) {
-//  myid |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-//}
 
 //  Create the various "clients"
 WiFiClient espClient;
 PubSubClient client(espClient);
-BleKeyboard bleKeyboard;  //(boardname,"NTucker",100);
+BleKeyboard bleKeyboard;  
 TinyPICO tp = TinyPICO();
 
 //class bleKeyboard;
@@ -40,18 +36,13 @@ void saveConfigCallback () {
 void setup() {
   Serial.begin(115200);
   Serial.println("Booting");
-  client.setBufferSize(1024);
+  client.setBufferSize(bufferSize);
 
   pinMode(25,INPUT_PULLUP);
   pinMode(26,INPUT_PULLUP);
 
-//uint32_t myid = 0;
-//for(int i=0; i<17; i=i+8) {
-//  myid |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-//}  
-
- tp.DotStar_SetBrightness(16);
- tp.DotStar_SetPixelColor( dot_booting );  
+  tp.DotStar_SetBrightness(16);
+  tp.DotStar_SetPixelColor( dot_booting );  
   
 
   // Get the last 2 bytes of the MAC address and set our MQTT name to AJAOne-<last 4 of MAC>
@@ -60,10 +51,7 @@ void setup() {
   Serial.print("Hello, my name is ");
   Serial.println(boardname);    
 
-  //BleKeyboard bleKeyboard(boardname,"NTucker",100);
-
-  IrReceiver.enableIRIn();  // Start the receiver
-    
+  IrReceiver.enableIRIn();  // Start the receiver   
   
 //===== WiFI Manager items =====
   loadconfig();  //read the config.json from SPIFFS
@@ -111,7 +99,6 @@ void setup() {
 //===== WiFI Manager items =====  
 
   Serial.println("Starting BT");
-  //BleKeyboard bleKeyboard(boardname,"NTucker",100);
   bleKeyboard.begin();  
  
   // Setup the MQTT client
@@ -130,6 +117,7 @@ void setup() {
 
   Serial.print("Hello, my name is ");
   Serial.println(boardname);   
+
 }
 //===== Setup =====================================================================^
 //===== Setup =====================================================================^
@@ -172,9 +160,7 @@ void loop() {
    //===== key press loop ====
 
     if (IrReceiver.decode()) {  // Grab an IR code
-        if (!isxmitting) {
          dumpInfo();             // Output the results
-        }
         //Serial.println();
         IrReceiver.resume();    // Prepare for the next value
     }   
@@ -182,34 +168,39 @@ void loop() {
 }
 //===== Loop ======================================================================^
 //===== Loop ======================================================================^
+
+
+//===== Dump the decoded info =====================================================
 void dumpInfo() {
-    // Check if the buffer overflowed
-    char buffer[512];
-    String pronto;
-    
+  char buffer[bufferSize];
+
+  Serial.println("DumpInfo:");
+  
+    // Check if the buffer overflowed  
     if (IrReceiver.results.overflow) {
         Serial.println("IR code too long. Edit IRremoteInt.h and increase RAW_BUFFER_LENGTH");
+        sendMQTTMessage("ERROR","IR code too long");
         return;
     }
 
     if (IrReceiver.results.bits == 0) {
+      Serial.println("No bits found");
       return;
     }
     
-    DynamicJsonDocument json(512);    
+    DynamicJsonDocument json(bufferSize);    
         
     json["protocol"] = IrReceiver.getProtocolString();
     sprintf(buffer,"0x%X",IrReceiver.results.value);
     json["data"] = buffer;
-     sprintf(buffer,"%d",IrReceiver.results.bits);
+    sprintf(buffer,"%d",IrReceiver.results.bits);
     json["bits"] = buffer;
 
-    char outgoingJsonBuffer[512];
+    char outgoingJsonBuffer[bufferSize];
     serializeJson(json, outgoingJsonBuffer);   
     sendMQTTMessage("irdecoder",outgoingJsonBuffer); 
 
     json.clear();
-
 
     String szpronto;
     IrReceiver.dumpPronto(&szpronto);
@@ -219,12 +210,14 @@ void dumpInfo() {
     json["data"] = bufferp;
     json["bits"] = "0";
     serializeJson(json, outgoingJsonBuffer);    
-    sendMQTTMessage("irpronto",outgoingJsonBuffer); 
-   
+    sendMQTTMessage("irpronto",outgoingJsonBuffer);   
 }
+//===== Dump the decoded info ====================================================^
+
 
 //===== MQTT Callback function =====================================================
 void callback(char* topic, byte* message, unsigned int length) {
+  
   tp.DotStar_SetPixelColor( dot_mqtttraffic );
   char buff[15];
       
@@ -251,7 +244,7 @@ void callback(char* topic, byte* message, unsigned int length) {
 //===== Bluetooth code to process ========================================
   if (String(topic) == String(boardname)+"/cmd/sendbtcode") {
    Serial.println("Processing Bluetooth command"); 
-   DynamicJsonDocument json(1024);         
+   DynamicJsonDocument json(bufferSize);         
    deserializeJson(json, messageTemp);
 
    const char* buff1 = json["key"];
@@ -289,23 +282,21 @@ void callback(char* topic, byte* message, unsigned int length) {
    if (buff3) {
      Serial.println(buff3);
      bleKeyboard.print(buff3);
-   }   
-   
+   }     
    
  } 
 //===== Bluetooth code to process =======================================^  
 
 
   if (String(topic) == String(boardname)+"/cmd/sendircode") {
-   isxmitting == true; 
+   
    Serial.println("Processing infrared command");
-   DynamicJsonDocument json(1024);         
+   DynamicJsonDocument json(bufferSize);         
    deserializeJson(json, messageTemp);
    unsigned int  data;
    data = strtol(json["data"],0,16);
 
    const char* myprotocol = json["protocol"];
-  // sprintf(buff,"Sending %s code",json["protocol"]);
    Serial.print("Sending ");
    Serial.print(myprotocol);
    Serial.print(" ");
@@ -336,21 +327,6 @@ void callback(char* topic, byte* message, unsigned int length) {
    } 
    else      
 
-//   if (json["protocol"] == "BOSEWAVE") {
-//    IrSender.sendBoseWave(data, json["bits"]);
-//   } 
-//   else     
-
-//   if (json["protocol"] == "LEGO_PF") {
-//    IrSender.sendLegoPowerFunctions(data, json["bits"]);
-//   } 
-//   else      
-
-//   if (json["protocol"] == "SHARP") {
-//    IrSender.sendSharpRaw(data, json["bits"]);
-//   } 
-//   else    
-
    if (json["protocol"] == "DISH") {
     IrSender.sendDISH(data, json["bits"]);
    } 
@@ -367,17 +343,11 @@ void callback(char* topic, byte* message, unsigned int length) {
    else
 
    if (json["protocol"] == "PRONTO") {  
-    //Serial.print("sending PRONTO code " );   
-    //char buff[512];
-    //sprintf(buff,json["data"]);
-    //Serial.println(buff);
-    //IrSender.sendPronto(buff,1);
-
     const char* mydata = json["data"];
     IrSender.sendPronto(mydata,1);
    }  //PRONTO    
 
-   isxmitting == false;
+   
    
   }  //sendircode
 
@@ -448,8 +418,7 @@ void reconnect() {
       doSubscribe(boardname,"cmd/reboot");      
 
       sendMQTTMessage("status/booted","hello");   
-
-      publishDiscovery(); 
+      
       tp.DotStar_Clear(); 
     } else {
       Serial.print("failed, rc=");
@@ -492,14 +461,6 @@ void utilityloop() {
 }
 //===== Just some house keeping items ============================^
 
-//===== localize some error checking to avoid panics =============
-void checkjson(char* adest, char* asource){
-  if (asource == NULL) {
-    return;
-  }
-  strcpy(adest,asource); 
-}
-//===== localize some error checking to avoid panics ============^
 
 //===== Config file routines ====================================
 void loadconfig() {
@@ -512,7 +473,6 @@ void loadconfig() {
    SPIFFS.format(); 
   }
   
-
   if (SPIFFS.begin(true)) {
     Serial.println("mounted file system");
     if (SPIFFS.exists("/config.json")) {
@@ -578,39 +538,6 @@ void saveconfig () {
     configFile.close();
 }
 //===== Config file routines ===================================^
-
-
-//===== Home Assistant discovery ================================
-  void publishDiscovery() {
-
-    Serial.println("Performing Autodiscovery . . . ");
-    char COMMAND_TOPIC[80] = "";
-    char STATE_TOPIC[80] = "";
-    
-    sprintf(friendlyName, "%s", boardname);  
-    sprintf(HOME_ASSISTANT_MQTT_DISCOVERY_TOPIC, "homeassistant/switch/%s", boardname);
-    sprintf(COMMAND_TOPIC, "%s/%s", boardname,"cmd/sendircode");
-    sprintf(STATE_TOPIC, "%s/%s", boardname,"cmd/status");
-
-    StaticJsonDocument<512> root;
-    root["name"] = friendlyName;
-    root["unique_id"] = friendlyName; 
-    root["device_class"] = "switch";
-    root["command_topic"] = COMMAND_TOPIC;
-    root["state_topic"] = STATE_TOPIC;
-    
-    char outgoingJsonBuffer[512];
-    serializeJson(root, outgoingJsonBuffer);
-    
-    Serial.println("");
-    Serial.println(HOME_ASSISTANT_MQTT_DISCOVERY_TOPIC);
-    Serial.println(outgoingJsonBuffer);
-    Serial.println("");
-    
-    client.publish(HOME_ASSISTANT_MQTT_DISCOVERY_TOPIC, outgoingJsonBuffer);
- }
-
-//===== Home Assistant discovery ===============================^
 
 uint8_t getkeys(const char* akey) {
  if (akey == "KEY_RETURN") {return KEY_RETURN;} 
