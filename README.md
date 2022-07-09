@@ -1,4 +1,4 @@
-# AJARemote
+# AJARemote 2022-3
 
 **Update:**
  AJARemote now includes a web server for changing WiFi or MQTT credentials without the need of a full reset. More importantly it also provides the ability to upgrade firmware in the event of updates. Your AJARemote is now future proofed!!
