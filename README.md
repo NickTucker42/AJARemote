@@ -1,4 +1,4 @@
-#AJARemote
+# AJARemote
 
 **Update:**
  AJARemote now includes a web server for changing WiFi or MQTT credentials without the need of a full reset. More importantly it also provides the ability to upgrade firmware in the event of updates. Your AJARemote is now future proofed!!
@@ -18,7 +18,7 @@ The AJARemote can also capture IR codes from your existing IR Remotes. Just poin
 Please not that although the InfraRed library is very extensive there is no guarantee that every device can be controlled.
 
 
-##Sample
+## Sample
 Sample captured IRCode:
 `{"protocol":"SONY","data":"0x42B47","bits":"20"}`
 
